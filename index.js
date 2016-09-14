@@ -36,7 +36,6 @@ function RateLimit(options) {
         if (typeof obj === 'string')
             obj = JSON.parse(obj);
         this.obj = obj;
-        console.log('init', typeof this.obj);
     });
 }
 
@@ -61,7 +60,6 @@ RateLimit.prototype.addToken = function () {
     let now = Date.now();
     // 即将要增加的令牌数
     let addedTokenCount = (now - this.obj.currentTime) * this.limit / this.interval;
-    console.log('addedTokenCount', addedTokenCount)
     addedTokenCount = Math.floor(addedTokenCount);
     this.obj.currentCount = this.obj.currentCount + addedTokenCount;
     // 不能超过最大值
@@ -70,12 +68,12 @@ RateLimit.prototype.addToken = function () {
         this.obj.currentTime = now;
     }
     if (this.obj.currentCount <= 0) {
-        this.obj.currentCount = 0;
-        this.db.set(this.prefix, JSON.stringify(this.obj));
+        // this.obj.currentCount = 0;
+        // this.setKey(this.prefix, JSON.stringify(this.obj));
         return false;
     }
     this.obj.currentCount--;
-    this.db.set(this.prefix, JSON.stringify(this.obj));
+    this.setKey(this.prefix, JSON.stringify(this.obj), this.interval/1000);
     return true;
 };
 
@@ -86,8 +84,7 @@ RateLimit.prototype.initBucket = function (callback) {
     this.getObj((err, data) => {
         if (!data) {
             data = getObject(this.id, Date.now(), this.limit / 2);
-            this.db.set(this.prefix, JSON.stringify(data));
-            console.log('成功');
+            this.setKey(this.prefix, JSON.stringify(data), this.interval/1000);
         }
         callback(null, data);
     });
@@ -105,5 +102,12 @@ RateLimit.prototype.getObj = function (callback) {
             callback(null, reply);
         }
     })
+};
+
+RateLimit.prototype.setKey = function (key, value, expire) {
+    this.db.set(key, value);
+    if (expire) {
+        this.db.expire(key, expire);
+    }
 };
 

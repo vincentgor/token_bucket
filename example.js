@@ -4,7 +4,7 @@
 
 'use strict';
 
-const redis = require('redis');
+const redis = require('ioredis');
 const db = redis.createClient();
 
 const Limit = require('./');
