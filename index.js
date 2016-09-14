@@ -12,8 +12,9 @@ module.exports = RateLimit;
  * currentTime： 当前访问的时间戳
  * currentCount： 当前剩余可访问次数，大于0表示可以访问，否则应该拒绝
  */
-function createObject(id, currentTime, currentCount) {
+function createObject(interfaceId, id, currentTime, currentCount) {
     return {
+        interfaceId,
         id,
         currentTime,
         currentCount
@@ -29,9 +30,10 @@ function RateLimit(options) {
     options = options || {};
     this.id = options.id || 666;
     this.db = options.db;
+    this.interfaceId = options.interfaceId;
     this.limit = options.limit || 100;
     this.interval = options.interval || 100000;
-    this.prefix = 'rate_limit:' + this.id + ':';
+    this.prefix = 'rate_limit:' + this.interfaceId + ':' + this.id;
     this.initBucket((err, obj) => {
         if (typeof obj === 'string')
             obj = JSON.parse(obj);
@@ -82,7 +84,7 @@ RateLimit.prototype.addToken = function () {
 RateLimit.prototype.initBucket = function (callback) {
     this.getObj((err, data) => {
         if (!data) {
-            data = createObject(this.id, Date.now(), this.limit / 2);
+            data = createObject(this.interfaceId, this.id, Date.now(), this.limit / 2);
             this.setKey(this.prefix, JSON.stringify(data), this.interval / 1000);
         }
         callback(null, data);

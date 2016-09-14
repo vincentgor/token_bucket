@@ -9,13 +9,23 @@ const db = redis.createClient();
 
 const Limit = require('./');
 
-const limiter = new Limit({
-    db: db
+const interfaceIdArray= ['_300', '_550'];
+const id = '23333';
+
+const limiter_300 = new Limit({
+    id: id,
+    db: db,
+    interfaceId: interfaceIdArray[0]
+});
+const limiter_550 = new Limit({
+    id: id,
+    db: db,
+    interfaceId: interfaceIdArray[1]
 });
 
 // 模拟请求（300毫秒一次）
 setInterval(() => {
-    limiter.check((err, data) => {
+    limiter_300.check((err, data) => {
         if (err) {
             console.log('err', err);
         } else {
@@ -26,7 +36,7 @@ setInterval(() => {
 
 // 模拟请求（550毫秒一次）
 setInterval(() => {
-    limiter.check((err, data) => {
+    limiter_550.check((err, data) => {
         if (err) {
             console.log('err', err);
         } else {
