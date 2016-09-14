@@ -7,18 +7,18 @@
 module.exports = RateLimit;
 
 /**
- * redis数据库中的结构
+ * 初始化一块用户内存
  * id: 单一用户
  * currentTime： 当前访问的时间戳
  * currentCount： 当前剩余可访问次数，大于0表示可以访问，否则应该拒绝
  */
-function getObject(id, currentTime, currentCount) {
+function createObject(id, currentTime, currentCount) {
     return {
         id,
         currentTime,
         currentCount
     }
-};
+}
 
 /**
  * 这是一个令牌桶对象
@@ -59,8 +59,7 @@ RateLimit.prototype.check = function (callback) {
 RateLimit.prototype.addToken = function () {
     let now = Date.now();
     // 即将要增加的令牌数
-    let addedTokenCount = (now - this.obj.currentTime) * this.limit / this.interval;
-    addedTokenCount = Math.floor(addedTokenCount);
+    let addedTokenCount = Math.floor((now - this.obj.currentTime) * this.limit / this.interval);
     this.obj.currentCount = this.obj.currentCount + addedTokenCount;
     // 不能超过最大值
     this.obj.currentCount = this.obj.currentCount > this.limit ? this.limit : this.obj.currentCount;
@@ -73,7 +72,7 @@ RateLimit.prototype.addToken = function () {
         return false;
     }
     this.obj.currentCount--;
-    this.setKey(this.prefix, JSON.stringify(this.obj), this.interval/1000);
+    this.setKey(this.prefix, JSON.stringify(this.obj), this.interval / 1000);
     return true;
 };
 
@@ -83,8 +82,8 @@ RateLimit.prototype.addToken = function () {
 RateLimit.prototype.initBucket = function (callback) {
     this.getObj((err, data) => {
         if (!data) {
-            data = getObject(this.id, Date.now(), this.limit / 2);
-            this.setKey(this.prefix, JSON.stringify(data), this.interval/1000);
+            data = createObject(this.id, Date.now(), this.limit / 2);
+            this.setKey(this.prefix, JSON.stringify(data), this.interval / 1000);
         }
         callback(null, data);
     });
@@ -104,6 +103,12 @@ RateLimit.prototype.getObj = function (callback) {
     })
 };
 
+/**
+ * 写入一个key值
+ * @param key
+ * @param value
+ * @param expire
+ */
 RateLimit.prototype.setKey = function (key, value, expire) {
     this.db.set(key, value);
     if (expire) {
