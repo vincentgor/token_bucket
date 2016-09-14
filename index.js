@@ -12,12 +12,19 @@ module.exports = RateLimit;
  * currentTime： 当前访问的时间戳
  * currentCount： 当前剩余可访问次数，大于0表示可以访问，否则应该拒绝
  */
-let obj = {
-    id: 1,
-    currentTime: 0,
-    currentCount: 100
+function getObject(id, currentTime, currentCount) {
+    return {
+        id,
+        currentTime,
+        currentCount
+    }
 };
 
+/**
+ * 这是一个令牌桶对象
+ * @param options
+ * @constructor
+ */
 function RateLimit(options) {
     options = options || {};
     this.id = options.id || 666;
@@ -25,6 +32,12 @@ function RateLimit(options) {
     this.limit = options.limit || 100;
     this.interval = options.interval || 100000;
     this.prefix = 'rate_limit:' + this.id + ':';
+    this.initBucket((err, obj) => {
+        if (typeof obj === 'string')
+            obj = JSON.parse(obj);
+        this.obj = obj;
+        console.log('init', typeof this.obj);
+    });
 }
 
 /**
@@ -35,29 +48,62 @@ RateLimit.prototype.check = function (callback) {
     // TUDO
     let can = this.addToken();
     if (!can) {
-        return callback('too fast', obj);
+        return callback('too fast');
     }
-    return callback(null, obj);
+    this.getObj(callback);
 };
 
-
+/**
+ * 判断是否需要增加令牌
+ * @returns {boolean}
+ */
 RateLimit.prototype.addToken = function () {
     let now = Date.now();
     // 即将要增加的令牌数
-    let addedTokenCount = (now - obj.currentTime) * this.limit / this.interval;
+    let addedTokenCount = (now - this.obj.currentTime) * this.limit / this.interval;
     console.log('addedTokenCount', addedTokenCount)
     addedTokenCount = Math.floor(addedTokenCount);
-    obj.currentCount = obj.currentCount + addedTokenCount;
+    this.obj.currentCount = this.obj.currentCount + addedTokenCount;
     // 不能超过最大值
-    obj.currentCount = obj.currentCount > this.limit ? this.limit : obj.currentCount;
+    this.obj.currentCount = this.obj.currentCount > this.limit ? this.limit : this.obj.currentCount;
     if (addedTokenCount) {
-        obj.currentTime = now;
+        this.obj.currentTime = now;
     }
-    if (obj.currentCount <= 0) {
-        obj.currentCount = 0;
+    if (this.obj.currentCount <= 0) {
+        this.obj.currentCount = 0;
+        this.db.set(this.prefix, JSON.stringify(this.obj));
         return false;
     }
-    obj.currentCount--;
-    return true
+    this.obj.currentCount--;
+    this.db.set(this.prefix, JSON.stringify(this.obj));
+    return true;
+};
+
+/**
+ * 分配一个独立空间给单一用户（redis 的 hset）
+ */
+RateLimit.prototype.initBucket = function (callback) {
+    this.getObj((err, data) => {
+        if (!data) {
+            data = getObject(this.id, Date.now(), this.limit / 2);
+            this.db.set(this.prefix, JSON.stringify(data));
+            console.log('成功');
+        }
+        callback(null, data);
+    });
+};
+
+/**
+ * 从redis获取令牌桶
+ * @param callback
+ */
+RateLimit.prototype.getObj = function (callback) {
+    this.db.get(this.prefix, (err, reply) => {
+        if (err) {
+            callback(err);
+        } else {
+            callback(null, reply);
+        }
+    })
 };
 

@@ -4,9 +4,14 @@
 
 'use strict';
 
+const redis = require('redis');
+const db = redis.createClient();
+
 const Limit = require('./');
 
-const limiter = new Limit();
+const limiter = new Limit({
+    db: db
+});
 
 // 模拟请求（300毫秒一次）
 setInterval(() => {
